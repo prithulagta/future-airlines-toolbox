@@ -1,0 +1,4 @@
+---
+log_groupname : "/aws/ec2/test-log-group"
+log_streams:
+ - { stream: "{{ log_groupname}}/cloud-init-output", name: "{instance_id}-cloud-init-output", file: '/var/log/cloud-init-output.log'  }

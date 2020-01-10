@@ -1,0 +1,8 @@
+---
+swarm_client_version: "3.9"
+swarm_installer_url: "https://repo.jenkins-ci.org/releases/org/jenkins-ci/plugins/swarm-client/{{swarm_client_version}}/swarm-client-{{ swarm_client_version }}.jar"
+terraform_version: "0.11.13"
+terraform_installer_url: "https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_amd64.zip"
+jenkins_port: "8081"
+jenkins_executors_count: "4"
+jdk_8_installer: "java-1.8.0-openjdk-devel.x86_64"

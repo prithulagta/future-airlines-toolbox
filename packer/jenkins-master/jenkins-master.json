@@ -1,0 +1,63 @@
+{
+    "variables" : {
+        "region" : "eu-west-1",
+        "source_ami" : "ami-0a5e707736615003c",
+        "subnet_id": "subnet-eda4eda4",
+        "security_group_id" : "sg-ad51c1cb"
+    },
+    "builders" : [
+        {
+            "type" : "amazon-ebs",
+            "profile" : "mgmt_acc",
+            "region" : "{{user `region`}}",
+            "associate_public_ip_address" : "false",
+            "instance_type" : "t2.medium",
+            "source_ami" : "{{user `source_ami`}}",
+            "subnet_id": "{{user `subnet_id`}}",
+            "security_group_id" : "{{user `sg-ad51c1cb`}}",
+            "ssh_username" : "ec2-user",
+            "ssh_private_ip": "true",
+            "ssh_pty" : "true",
+            "ami_name" : "jenkins-master-2.138.3",
+            "ami_description" : "Amazon Linux Image with Jenkins Server {{isotime \"2006-01-02\"}}",
+            "run_tags" : {
+                "name" : "packer-builder",
+                "team" : "devops",
+                "brand": "future-airlines",
+                "costcenter": "100"
+            },
+            "tags" : {
+                "branch": "master",
+                "application" : "jenkins-master",
+                "team" : "devops",
+                "brand": "future-airlines",
+                "costcenter": "100",
+                "builton": "{{isotime \"2006-01-02\"}}"
+            },
+            "run_volume_tags": {
+                "branch": "master",
+                "application" : "jenkins-master",
+                "team" : "devops",
+                "brand": "future-airlines",
+                "costcenter": "100",
+                "builton": "{{isotime \"2006-01-02\"}}"
+            }
+        }
+    ],
+    "provisioners" : [
+        {
+            "type" : "file",
+            "source" : "files",
+            "destination" : "/tmp/files"
+        },
+        {
+            "type" : "file",
+            "source" : "../ansible-playbooks",
+            "destination" : "/tmp/ansible-playbooks"
+        },
+        {
+            "type" : "shell",
+            "script" : "scripts/setup.sh"
+        }
+    ]
+}

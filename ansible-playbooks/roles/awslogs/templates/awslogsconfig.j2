@@ -1,0 +1,11 @@
+[general]
+state_file = /var/awslogs/state/agent-state
+
+{% for logstream in log_streams %}
+
+[{{ logstream.stream }}]
+file = {{ logstream.file }}
+log_group_name = {{ log_groupname }}
+log_stream_name = {{ logstream.name }}
+
+{% endfor %}

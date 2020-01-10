@@ -1,0 +1,11 @@
+java \
+ -jar /opt/swarm/swarm-client.jar \
+ -master http://{{ jenkins_master}}:{{ jenkins_port }} \
+ -name {{ jenkins_worker }} \
+ -username {{ swarm_username }} \
+ -password {{ swarm_password }} \
+ -executors {{ jenkins_executors_count }} \
+ -labels "awscli ebcli jq java8 pip3 git"
+
+
+ 

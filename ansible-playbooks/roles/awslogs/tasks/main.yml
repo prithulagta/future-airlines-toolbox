@@ -1,0 +1,20 @@
+---
+
+- name: Download the awslogs executable
+  get_url: url="https://s3.amazonaws.com//aws-cloudwatch/downloads/latest/awslogs-agent-setup.py" dest="/var/tmp/awslogs-agent-setup.py" mode=0755
+  become: true
+
+- name: Copy the configuration file to install awslogs
+  template: src=awslogsconfig.j2 dest=/var/tmp/awslogsconfig.txt mode=0755
+  become: true
+
+- name: Install awslogs
+  command: ./awslogs-agent-setup.py -n -r {{ region }} -c /var/tmp/awslogsconfig.txt
+  args:
+   chdir:  /var/tmp
+  become: true
+
+- name: Start the awslogs daemon
+  service: name=awslogs state=started enabled=true
+  become: true
+  tags: 'runtime'

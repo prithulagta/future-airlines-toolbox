@@ -1,0 +1,50 @@
+pipeline {
+  agent { 
+    node {
+      label "build"
+    }
+  }
+  stages {
+    stage("Build Artifact transactions-etl") {
+      steps {
+          script {
+              def scala_utils_version_param = "${params.SCALA_UTILS_VERSION}"
+              def scala_utils_version = "${scala_utils_version_param}-SNAPSHOT"
+              echo "scala_utils_version=${scala_utils_version}"
+
+              def repo_version = readFile "${WORKSPACE}/repo_version.txt"
+
+              def version_number = "${repo_version}.${BUILD_NUMBER}-SNAPSHOT"
+              echo "version_number=${version_number}"
+
+              dir("${WORKSPACE}/operations/batch-operations/candidate-insights-pipeline") {
+                  sh "mvn dependency:purge-local-repository -Dversion_number=${version_number} -Dscala_utils_version=${scala_utils_version}"
+                  sh "mvn clean deploy -DskipTests -Dversion_number=${version_number} -Dscala_utils_version=${scala_utils_version}"
+              }
+            }
+          }
+      }
+  }
+   post {
+        always {
+            script {
+                echo "Clean up our workspace"
+                deleteDir() /* clean up our workspace, every little helps */
+            }
+        }
+        failure {
+            script {
+                echo "The build has failed. Send out notifications!"
+                def cause = getBuildCause()
+                if (cause == 'user') {
+                    emailext body: "Project: ${env.JOB_NAME} \n Build Number: ${env.BUILD_URL} has failed", recipientProviders: [[$class: 'DevelopersRecipientProvider'], [$class: 'RequesterRecipientProvider']], subject: "ERROR CI: Project name -> ${env.JOB_NAME}"
+                }
+                else {
+                    echo "Triggered by Timer"
+                    // Query the application_list table to get the notification end point for the application. It will be an workplace group.
+                    // Run curl commands to send a message to the workplace group, identified in the above step.
+                }
+            }    
+        }
+    }
+}

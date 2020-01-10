@@ -1,0 +1,15 @@
+---
+  - hosts: localhost
+    connection: local
+
+    vars_files:
+      - var_files/global.yml
+
+    vars:
+      - log_streams:
+        - { stream: "{{ log_groupname}}/cloud-init-output", name: "{instance_id}-cloud-init-output", file: '/var/log/cloud-init-output.log'  }
+        - { stream: "{{ log_groupname}}/user-data", name: "{instance_id}-user-data", file: '/var/log/user-data.log'  }
+    
+    roles:
+      - awslogs
+      - jenkins-worker

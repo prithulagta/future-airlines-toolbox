@@ -1,0 +1,75 @@
+---
+
+- name: Install the packages via yum
+  yum: name={{ packages }} state=present
+  vars:
+    packages:
+    - docker
+    - java-1.8.0
+    - gcc-c++ 
+    - make
+    - python3*-pip
+    - python36
+    - python36-devel 
+    - unzip
+    - zip
+    - git
+    - jq
+
+
+- name: Install Python3 dependencies
+  shell: "python3 -m pip install boto3"
+
+- name: Download Terraform installer
+  unarchive: src={{ terraform_installer_url }} dest=/usr/bin remote_src=yes mode="u=rwx,g=rx,o=rx"
+
+- name: Install Maven
+  block:
+    - get_url: url='http://repos.fedorapeople.org/repos/dchen/apache-maven/epel-apache-maven.repo' dest=/etc/yum.repos.d/epel-apache-maven.repo 
+    - command: sed -i s/\$releasever/6/g /etc/yum.repos.d/epel-apache-maven.repo
+    - yum: name=apache-maven state=present
+    - file: path=/root/.m2 state=directory mode=0755
+    - template: src=settings.xml.j2 dest=/root/.m2/settings.xml mode=0755
+
+- name: Describe the swarm credentials from Secret Manager
+  shell: "aws secretsmanager get-secret-value --region {{ region }} --secret-id jenkins-worker/swarm --query SecretString | jq '.'"
+  register: swarm_credentials
+  failed_when: swarm_credentials.stdout == ""
+
+- name: Fetch the swarm username
+  shell: "echo {{ swarm_credentials.stdout }} | jq -r '.username'"
+  register: swarm_username_stdout
+  failed_when: swarm_username_stdout.stdout == ""
+
+- name: Fetch the swarm password
+  shell: "echo {{ swarm_credentials.stdout }} | jq -r '.password'"
+  register: swarm_password_stdout
+  failed_when: swarm_password_stdout.stdout == ""
+
+- name: Define the swarm credential variables
+  set_fact: swarm_username="{{ swarm_username_stdout.stdout }}" swarm_password="{{ swarm_password_stdout.stdout }}"
+
+- name: Install Jenkins Swarm client
+  block:
+     - file: path=/opt/swarm state=directory mode=0755
+     - get_url: url={{ swarm_installer_url }} dest=/opt/swarm/swarm-client.jar
+
+- name: Add the swarm startup script
+  template: src=start-swarm.sh.j2 dest=/opt/swarm/start-swarm.sh mode=0755
+  tags: 'runtime'
+
+- name: Configure AWS default profile for env workers
+  block:
+    - file: path=/root/.aws state=directory mode=0755
+    - template: src=aws.config.j2 dest=/root/.aws/config mode=0755
+
+- name: Start Docker
+  service: name=docker state=started enabled=true
+  tags: 'runtime'
+
+- name: Deploy the Docker Login script
+  template: src=dockerlogin.sh.j2 dest=/usr/bin/dockerlogin mode=0755
+
+- name: Start Jenkins swarm
+  shell: "/bin/bash /opt/swarm/start-swarm.sh"
+  tags: 'runtime'

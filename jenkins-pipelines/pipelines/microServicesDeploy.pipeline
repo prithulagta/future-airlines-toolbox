@@ -1,0 +1,159 @@
+import groovy.json.JsonSlurperClassic
+import java.text.SimpleDateFormat
+import hudson.model.AbstractProject
+import hudson.tasks.Mailer
+import hudson.model.User
+import hudson.model.*
+
+pipeline {
+    agent {
+      label 'deploy'
+    }
+    environment {
+        account_profile = sh(returnStdout: true, script: "aws --version" --output text").trim()
+    }
+    options {
+      buildDiscarder(logRotator(daysToKeepStr: '30'))
+      timestamps()
+    }
+    stages {
+        stage('Validate Input Parameters') {
+            steps {
+                echo "Validate Input Parameters"
+                validateParameters()
+            }
+        }
+        stage("Download Artefact") {
+            steps {
+                script {
+                    download_artefact()
+                }
+            }
+        }
+        stage('Deploy Artifact') {
+            steps {
+                deploy_artifact()
+            }
+        }
+        stage('Verify Deployment') {
+            steps {
+                verify_deployment()
+            }
+        }
+        stage('Run Smoke Test') {
+            steps {
+                  run_smoke_test()
+                    }
+            }
+    }
+    post {
+        always {
+            script {
+                echo "Clean up our workspace"
+                deleteDir() /* clean up our workspace, every little helps */
+                } 
+                
+            }
+        }
+        failure {
+            script {
+                echo "The build has failed. Send out notifications!"
+                def component_name = "prophet-${env.APP_NAME}"
+                def cause = getBuildCause()
+                if (cause == 'user') {
+                    emailext body: "Project: ${env.JOB_NAME} \n Build Number: ${env.BUILD_URL} has failed", recipientProviders: [[$class: 'DevelopersRecipientProvider'], [$class: 'RequesterRecipientProvider']], subject: "ERROR CI: Project name -> ${env.JOB_NAME} -> ${env.APP_NAME}"
+                }
+                else {
+                    echo "Triggered by Timer"
+                    // Query the application_list table to get the notification end point for the application. It will be an workplace group.
+                    // Run curl commands to send a message to the workplace group, identified in the above step.
+                }
+            }    
+        }
+    }
+}
+def run_smoke_test() {
+    echo "Run the smoke test for :: ${params.APP_NAME}"
+            def SMOKETEST_RESPONSECODE = sh(returnStdout: true, script: "curl -s -o /dev/null -w '%{http_code}' https://${params.APP_NAME}.${params.ENV_NAME}.assistant.natwest.com/${smoketest_endpoint}").trim()
+            if (SMOKETEST_RESPONSECODE != "200") {
+               app_status.find {
+                    if (it.app_name.equals("${params.APP_NAME}")) {
+                        it.app_status = "failed"
+                    }
+                }
+            }
+    
+    echo "Smoke test run completed"
+}
+def verify() {
+    stage('Verify') {
+        def userInput = input(
+            id: 'userInput', message: 'This is PRODUCTION!', parameters: [
+            [$class: 'BooleanParameterDefinition', defaultValue: false, description: '', name: 'Please confirm you sure to proceed']
+        ])
+
+        if(!userInput) {
+            error "Build wasn't confirmed"
+        }
+    }
+}
+def download_artefact(list) {
+    def server_id = 'artifactory-dev'
+    def server = Artifactory.server server_id
+    def ARTIFACTORY_PATH = ''
+    def downloadSpec = ''
+    def app_name = ''
+    def app_version = ''
+    def app_type = ''
+    def artifact_name = ''
+    def download_artifact = ''
+    ARTIFACTORY_PATH = "libs-release-local/com/rbs/prophetservices/${download_artifact}"
+            downloadSpec = """{
+                "files": [{
+                "pattern": "${ARTIFACTORY_PATH}/${app_version}/*.war",
+                "target": "libs-release-local/",
+                "recursive": "true",
+                "flat": "true"
+                }]
+            }"""
+            
+    }
+    server.download(downloadSpec)
+    }
+}
+
+@NonCPS
+def validateParameters() {
+    if (!ENV_NAME?.trim()) {
+        error 'ENV_NAME is empty'
+    }
+    if (DEPLOY_RELEASE.equals('true')) {
+        if(!RELEASE_VERSION?.trim()) {
+            error 'RELEASE_VERSION is empty'
+        }
+    }
+    else {
+        if(!APP_NAME?.trim()) {
+            error 'APP_NAME is empty'
+        }
+        else {
+            if(!name?.trim()) {
+              error 'Name which takes the application version is empty'
+            }
+        }
+    }
+}
+
+@NonCPS
+def getBuildCause() {
+   
+        def item = hudson.model.Hudson.instance.getItem(env.JOB_NAME) 
+        def build = item.getLastBuild()
+        if( currentBuild.rawBuild.getCause(Cause.UserIdCause) != null ) {
+            return "user"
+        }
+        else {
+            return "something else"
+        }
+
+}
