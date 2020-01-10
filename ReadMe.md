@@ -1,5 +1,5 @@
 ## Packer
-## To build Custom AMIs
+### To build Custom AMIs
 
 ### validate packer template
 packer validate jenkins-master.json 
