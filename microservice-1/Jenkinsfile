@@ -5,21 +5,17 @@ pipeline {
     }
   }
   stages {
-    stage("Build Artifact transactions-etl") {
+    stage("Git Checkout") {
+            steps {
+                checkout scm: [$class: 'GitSCM', userRemoteConfigs: [[url: "repo-url", credentialsId: "${git_users[JENKINS_ENVIRONMENT]}"]], branches: [[name: "${params.BRANCH}"]]]
+            }
+        }
+    stage("Build microservice-1 artifact") {
       steps {
           script {
-              def scala_utils_version_param = "${params.SCALA_UTILS_VERSION}"
-              def scala_utils_version = "${scala_utils_version_param}-SNAPSHOT"
-              echo "scala_utils_version=${scala_utils_version}"
-
-              def repo_version = readFile "${WORKSPACE}/repo_version.txt"
-
-              def version_number = "${repo_version}.${BUILD_NUMBER}-SNAPSHOT"
-              echo "version_number=${version_number}"
-
-              dir("${WORKSPACE}/operations/batch-operations/candidate-insights-pipeline") {
-                  sh "mvn dependency:purge-local-repository -Dversion_number=${version_number} -Dscala_utils_version=${scala_utils_version}"
-                  sh "mvn clean deploy -DskipTests -Dversion_number=${version_number} -Dscala_utils_version=${scala_utils_version}"
+             dir("${WORKSPACE}/microservice-1") {
+                  sh "mvn dependency:purge-local-repository"
+                  sh "mvn clean deploy"
               }
             }
           }
